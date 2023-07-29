@@ -1,9 +1,16 @@
 import asyncio
 from asyncio.subprocess import Process
+import atexit
+import json
+import os
+from pathlib import Path
+import re
+import signal
 from typing import Dict, Optional
 
 from common.handle import Response, Status
 from common.task import AsyncTask, PeriodicTask, ScheduledTask, Task, TaskFlag
+from common.utils import get_with_home_path
 
 
 class TaskProcess:
@@ -18,6 +25,23 @@ class Tasks:
 
     def __init__(self) -> None:
         self._tasks: Dict[int, TaskProcess] = {}
+        self._cache_path: Optional[Path] = None
+
+        atexit.register(self._atexit)
+
+    def _atexit(self):
+        for v in self._tasks.values():
+            if v.child is not None:
+                try:
+                    v.child.kill()
+                except:
+                    pass
+
+    def set_cache_path(self, path: Path) -> None:
+        self._cache_path = path
+
+    def get_cache_path(self) -> Optional[Path]:
+        return self._cache_path
 
     def add(self, task_id: int, tp: TaskProcess) -> None:
         self._tasks[task_id] = tp
@@ -28,6 +52,19 @@ class Tasks:
     def get(self, task_id: int) -> Optional[TaskProcess]:
         return self._tasks.get(task_id)
 
+    def get_by_name(self, name: str) -> Optional[TaskProcess]:
+        for tp in self._tasks.values():
+            if tp.task.name == name:
+                return tp
+        return None
+
+    def get_all(self) -> Dict[int, TaskProcess]:
+        return self._tasks
+
+    def remove(self, task_id: int) -> None:
+        if task_id in self._tasks:
+            del self._tasks[task_id]
+
     def __new__(cls) -> "Tasks":
         if cls._instance is None:
             cls._instance = super(Tasks, cls).__new__(cls)
@@ -35,6 +72,56 @@ class Tasks:
 
 
 tasks = Tasks()
+
+
+async def load(path: str) -> None:
+    """
+    Load tasks from file.
+    :param path: File path
+    :return: Response
+    """
+    path_home = get_with_home_path(path)
+
+    tasks.set_cache_path(path_home)
+
+    if not path_home.exists() or not path_home.is_file():
+        raise Exception(f"Cache file [{path_home}] is not valid")
+
+    with open(path_home, "r") as f:
+        tasks_cache = json.load(f)
+
+    for task in tasks_cache:
+        tp = TaskProcess(task=Task.from_dict(task))
+        if isinstance(tp.task.task_type, AsyncTask):
+            if tp.task.status == "running":
+                child = await tp.task.start()
+
+                task_id = tp.task.id
+
+                async def watch():
+                    await child.wait()
+                    returncode = child.returncode
+                    await update(task_id, None, "stopped", returncode)
+
+                tp.joinhandle = asyncio.create_task(watch())
+                tp.child = child
+                tp.task.pid = child.pid
+                tp.task.status = "running"
+                tp.task.code = None
+        tasks.add(tp.task.id, tp)
+
+
+async def cache() -> None:
+    path = tasks.get_cache_path()
+    if path is not None:
+        parent = path.parent
+        if not parent.exists():
+            parent.mkdir(parents=True)
+        tasks_cache = []
+        for tp in tasks.get_all().values():
+            tasks_cache.append(tp.task.into_dict())
+        with open(path, "w") as f:
+            json.dump(tasks_cache, f)
 
 
 async def update(task_id: int, pid: int, status: str, code: int) -> Response:
@@ -63,31 +150,17 @@ async def run(task: Task) -> Response:
     :param task: Task
     :return: Response
     """
-    status = Status(
-        id=1,
-        name="watchmen",
-        command="watchmen",
-        args=["--config"],
-        dir=None,
-        env={},
-        stdin=None,
-        stdout=None,
-        stderr=None,
-        created_at=0,
-        task_type=AsyncTask(max_restart=5, has_restart=0,
-                            started_at=0, stopped_at=0),
-        pid=None,
-        status=None,
-        exit_code=None,
-    )
-    return Response.success([status])
+    await add(task)
+    return await start(TaskFlag(id=task.id, name="", mat=False))
 
 
 async def add(task: Task) -> Response:
     if tasks.check(task.id):
         return Response.failed(f"Task [{task.id}] already exists")
+
     tp = TaskProcess(task)
     tasks.add(task.id, tp)
+    asyncio.create_task(cache())
     return Response.success(f"Task [{task.id}] added")
 
 
@@ -97,24 +170,8 @@ async def re_load(task: Task) -> Response:
     :param task: Task
     :return: Response
     """
-    status = Status(
-        id=1,
-        name="watchmen",
-        command="watchmen",
-        args=["--config"],
-        dir=None,
-        env={},
-        stdin=None,
-        stdout=None,
-        stderr=None,
-        created_at=0,
-        task_type=AsyncTask(max_restart=5, has_restart=0,
-                            started_at=0, stopped_at=0),
-        pid=None,
-        status=None,
-        exit_code=None,
-    )
-    return Response.success([status])
+    await remove(TaskFlag(id=task.id, name="", mat=False), to_cache=False)
+    return await add(task)
 
 
 async def start(tf: TaskFlag) -> None:
@@ -133,28 +190,72 @@ async def start(tf: TaskFlag) -> None:
 
         child = await tp.task.start()
 
-        jh = asyncio.create_task(child.wait())
-
-        tp.joinhandle = jh
-        tp.child = child
-        tp.task.code = None
-
         async def watch():
             await child.wait()
             returncode = child.returncode
             await update(tp.task.id, None, "stopped", returncode)
 
-        asyncio.create_task(watch())
+        tp.joinhandle = asyncio.create_task(watch())
+        tp.child = child
+        tp.task.pid = child.pid
+        tp.task.status = "running"
+        tp.task.code = None
 
-        await update(tp.task.id, child.pid, "running", None)
+        asyncio.create_task(cache())
 
         return Response.success(f"Task [{tf.id}] started")
     elif isinstance(tp.task.task_type, PeriodicTask):
-        raise ValueError(f"222")
+        print("This task type is currently not supported")
     elif isinstance(tp.task.task_type, ScheduledTask):
-        raise ValueError(f"333")
+        print("This task type is currently not supported")
+    raise ValueError("Task type not supported")
 
-    raise ValueError(f"444")
+
+async def stop(tf: TaskFlag, to_cache: bool = True) -> Response:
+    tp = tasks.get(tf.id)
+    if tp is None:
+        raise ValueError(f"Task [{tf.id}] not exists")
+
+    if tp.task.status != "running" and tp.task.status != "auto restart":
+        raise ValueError(f"Task [{tf.id}] is not running")
+
+    pid = tp.task.pid
+    if pid is None:
+        raise ValueError(f"Task [{tf.id}] is not running")
+
+    try:
+        os.kill(pid, signal.SIGTERM)
+        tp.task.status = "stopped"
+        if to_cache:
+            asyncio.create_task(cache())
+        return Response.success(f"Task [{tf.id}] stopped")
+    except ProcessLookupError:
+        raise ValueError(f"Task [{tf.id}] is not running")
+
+
+async def restart(tf: TaskFlag) -> Response:
+    await stop(tf, False)
+    return await start(tf)
+
+
+async def remove(tf: TaskFlag, to_cache: bool = True) -> Response:
+    if tf.id > 0:
+        tp = tasks.get(tf.id)
+    else:
+        tp = tasks.get_by_name(tf.name)
+
+    if tp is None:
+        raise ValueError(f"Task [{tf.id}] not exists")
+
+    if tp.task.status == "running":
+        raise ValueError("Task is running, please stop it first")
+
+    tasks.remove(tp.task.id)
+
+    if to_cache:
+        asyncio.create_task(cache())
+
+    return Response.success(f"Task [{tf.id}] removed")
 
 
 async def lst(condition: Optional[TaskFlag]) -> Response:
@@ -164,8 +265,9 @@ async def lst(condition: Optional[TaskFlag]) -> Response:
     :return: Response
     """
     if condition is None:
+        # list all task status
         statuses = []
-        for k, v in tasks._tasks.items():
+        for k, v in tasks.get_all().items():
             status = Status(
                 id=k,
                 name=v.task.name,
@@ -185,4 +287,71 @@ async def lst(condition: Optional[TaskFlag]) -> Response:
             statuses.append(status)
         return Response.success(statuses)
     else:
-        return Response.success(list(tasks._tasks.values()))
+        # list task status by condition
+        if condition.id > 0:
+            # condition by id
+            tp = tasks.get(condition.id)
+            if tp is None:
+                return Response.success([])
+            status = Status(
+                id=tp.task.id,
+                name=tp.task.name,
+                command=tp.task.command,
+                args=tp.task.args,
+                dir=tp.task.dir,
+                env=tp.task.env,
+                stdin=tp.task.stdin,
+                stdout=tp.task.stdout,
+                stderr=tp.task.stderr,
+                created_at=tp.task.created_at,
+                task_type=tp.task.task_type,
+                pid=tp.task.pid,
+                status=tp.task.status,
+                exit_code=tp.task.code,
+            )
+            return Response.success([status])
+        elif condition.mat:
+            # condition by name with regex
+            statuses = []
+            for k, v in tasks.get_all().items():
+                if re.match(condition.name, v.task.name):
+                    status = Status(
+                        id=k,
+                        name=v.task.name,
+                        command=v.task.command,
+                        args=v.task.args,
+                        dir=v.task.dir,
+                        env=v.task.env,
+                        stdin=v.task.stdin,
+                        stdout=v.task.stdout,
+                        stderr=v.task.stderr,
+                        created_at=v.task.created_at,
+                        task_type=v.task.task_type,
+                        pid=v.task.pid,
+                        status=v.task.status,
+                        exit_code=v.task.code,
+                    )
+                    statuses.append(status)
+            return Response.success(statuses)
+        else:
+            # condition by name
+            tp = tasks.get_by_name(condition.name)
+            if tp is None:
+                return Response.success([])
+            status = Status(
+                id=tp.task.id,
+                name=tp.task.name,
+                command=tp.task.command,
+                args=tp.task.args,
+                dir=tp.task.dir,
+                env=tp.task.env,
+                stdin=tp.task.stdin,
+                stdout=tp.task.stdout,
+                stderr=tp.task.stderr,
+                created_at=tp.task.created_at,
+                task_type=tp.task.task_type,
+                pid=tp.task.pid,
+                status=tp.task.status,
+                exit_code=tp.task.code,
+            )
+            return Response.success([status])

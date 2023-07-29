@@ -68,6 +68,45 @@ class Task(BaseModel):
             code=None,
         )
 
+    def into_dict(self) -> Dict[str, Any]:
+        """
+        Convert task to dict.
+        Reconstruct data to facilitate communication with 'rust' 
+        :return: Dict[str, Any]
+        """
+        data = self.model_dump()
+
+        if "max_restart" in data["task_type"]:
+            data["task_type"] = {"Async": data["task_type"]}
+        elif "started_after" in data["task_type"]:
+            data["task_type"] = {"Periodic": data["task_type"]}
+        elif "year" in data["task_type"]:
+            data["task_type"] = {"Scheduled": data["task_type"]}
+        else:
+            raise Exception("Unknown task type")
+        return data
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Task":
+        """
+        Convert dict to task.
+        Reconstruct data to facilitate communication with 'rust'
+        :param data: Dict[str, Any]
+        :return: Task
+        """
+        result = cls(**data)
+        if "Async" in result.task_type:
+            result.task_type = AsyncTask(**result.task_type["Async"])
+        elif "Periodic" in result.task_type:
+            result.task_type = PeriodicTask(
+                **result.task_type["Periodic"])
+        elif "Scheduled" in result.task_type:
+            result.task_type = ScheduledTask(
+                **result.task_type["Scheduled"])
+        else:
+            raise Exception("Unknown task type")
+        return result
+
     async def start(self) -> Process:
         stdin_file = None
         stdout_file = None

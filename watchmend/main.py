@@ -7,7 +7,7 @@ from common import Config, DaemonArgs, ExitCode, VERSION, Request, Task
 async def _main(config: Config, load: bool) -> int:
     # TODO: start monitor
 
-    await start(config=config, load=load)
+    await start(config=config, load_cache=load)
 
 
 def main() -> int:
