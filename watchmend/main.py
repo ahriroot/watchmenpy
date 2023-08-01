@@ -1,12 +1,12 @@
 import asyncio
 
 from .engine import start
-from common import Config, DaemonArgs, ExitCode, VERSION, Request, Task
+from .monitor import run_monitor
+from common import Config, DaemonArgs, ExitCode, VERSION
 
 
 async def _main(config: Config, load: bool) -> int:
-    # TODO: start monitor
-
+    asyncio.create_task(run_monitor())
     await start(config=config, load_cache=load)
 
 

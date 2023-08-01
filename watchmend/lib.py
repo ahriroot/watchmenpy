@@ -74,6 +74,14 @@ class Tasks:
 tasks = Tasks()
 
 
+async def get_all() -> Dict[int, Task]:
+    """
+    Get all tasks.
+    :return: Response
+    """
+    return tasks.get_all()
+
+
 async def load(path: str) -> None:
     """
     Load tasks from file.
@@ -97,11 +105,26 @@ async def load(path: str) -> None:
                 child = await tp.task.start()
 
                 task_id = tp.task.id
+                max_restart = tp.task.task_type.max_restart
+                has_restart = tp.task.task_type.has_restart
 
                 async def watch():
                     await child.wait()
+                    print(task_id)
+                    print(child.returncode)
+                    print(max_restart)
+                    print(has_restart)
                     returncode = child.returncode
-                    await update(task_id, None, "stopped", returncode)
+                    if max_restart is None:
+                        await update(task_id, None, "stopped", returncode, False)
+                    else:
+                        if max_restart == 0:
+                            await update(task_id, None, "auto restart", returncode, True)
+                        else:
+                            if has_restart < max_restart:
+                                await update(task_id, None, "auto restart", returncode, True)
+                            else:
+                                await update(task_id, None, "stopped", returncode, False)
 
                 tp.joinhandle = asyncio.create_task(watch())
                 tp.child = child
@@ -124,13 +147,14 @@ async def cache() -> None:
             json.dump(tasks_cache, f)
 
 
-async def update(task_id: int, pid: int, status: str, code: int) -> Response:
+async def update(task_id: int, pid: int, status: str, code: int, restart: Optional[bool] = False) -> Response:
     """
     Update task status.
     :param task_id: Task id
     :param pid: Process id
     :param status: Task status
     :param code: Exit code
+    :param restart: Restart
     :return: Response
     """
     tp = tasks.get(task_id)
@@ -140,6 +164,16 @@ async def update(task_id: int, pid: int, status: str, code: int) -> Response:
     tp.task.pid = pid
     tp.task.status = status
     tp.task.code = code
+
+    if isinstance(tp.task.task_type, AsyncTask):
+        has = tp.task.task_type.has_restart
+        if restart is not None:
+            if tp.task.task_type.max_restart is None:
+                has = 0
+            else:
+                if has < tp.task.task_type.max_restart:
+                    has += 1
+        tp.task.task_type.has_restart = has
 
     return Response.success(f"Task [{task_id}] updated")
 
@@ -193,7 +227,16 @@ async def start(tf: TaskFlag) -> None:
         async def watch():
             await child.wait()
             returncode = child.returncode
-            await update(tp.task.id, None, "stopped", returncode)
+            if tp.task.task_type.max_restart is None:
+                await update(tp.task.id, None, "stopped", returncode, restart)
+            else:
+                if tp.task.task_type.max_restart == 0:
+                    await update(tp.task.id, None, "auto restart", returncode)
+                else:
+                    if tp.task.task_type.has_restart < tp.task.task_type.max_restart:
+                        await update(tp.task.id, None, "auto restart", returncode)
+                    else:
+                        await update(tp.task.id, None, "stopped", returncode)
 
         tp.joinhandle = asyncio.create_task(watch())
         tp.child = child
