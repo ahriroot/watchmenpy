@@ -2,7 +2,7 @@ from setuptools import setup
 from setuptools import find_packages
 from watchmen import VERSION
 
-with open("README.md", "r", encoding="utf-8") as fh:
+with open("README_EN.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(

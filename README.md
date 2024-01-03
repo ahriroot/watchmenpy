@@ -1,4 +1,4 @@
-# Watchmen (0.1.0)
+# Watchmen (0.0.1)
 
 `
 Watchmen 是一个守护进程管理器，可为您全天候管理和保持应用程序在线
@@ -74,6 +74,9 @@ mat = "^.*\\.(toml|ini|json)$"
 
 # Tasks cache file, json format
 cache = "$HOME/.watchmen/cache.json"
+
+# Monitor interval for rerun tasks, u64: second
+interval = 5
 
 
 [sock]
@@ -175,7 +178,7 @@ options:
   -v, --version         Print version
 
 Sub Commands:
-  {run,add,reload,start,restart,stop,remove,list}
+  {run,add,reload,start,restart,stop,remove,pause,resume,list}
     run                 Add and run tasks
     add                 Add tasks
     reload              Reload tasks
@@ -183,9 +186,11 @@ Sub Commands:
     restart             Restart tasks
     stop                Stop tasks
     remove              Remove tasks
+    pause               Pause tasks
+    resume              Resume tasks
     list                Get tasks list
 
-See 'watchmen COMMAND --help' for more information on a specific command.
+See "watchmen COMMAND --help" for more information on a specific command.
 ```
 
 ### watchmen run -h
@@ -354,6 +359,44 @@ options:
   -m, --mat             Is match regex pattern by namae
 ```
 
+### watchmen pause -h
+
+```shell
+usage: watchmen pause [OPTIONS]
+
+options:
+  -h, --help            show this help message and exit
+  -p <PATH>, --path <PATH>
+                        Task config directory
+  -r <REGEX>, --regex <REGEX>
+                        Task config filename regex pattern
+  -f <CONFIG>, --config <CONFIG>
+                        Task config file
+  -i <ID>, --id <ID>    Task id (unique)
+  -n <NAME>, --name <NAME>
+                        Task name (unique)
+  -m, --mat             Is match regex pattern by namae
+```
+
+### watchmen resume -h
+
+```shell
+usage: watchmen resume [OPTIONS]
+
+options:
+  -h, --help            show this help message and exit
+  -p <PATH>, --path <PATH>
+                        Task config directory
+  -r <REGEX>, --regex <REGEX>
+                        Task config filename regex pattern
+  -f <CONFIG>, --config <CONFIG>
+                        Task config file
+  -i <ID>, --id <ID>    Task id (unique)
+  -n <NAME>, --name <NAME>
+                        Task name (unique)
+  -m, --mat             Is match regex pattern by namae
+```
+
 ### watchmen list -h
 
 ```shell
@@ -370,8 +413,8 @@ options:
   -i <ID>, --id <ID>    Task id (unique)
   -n <NAME>, --name <NAME>
                         Task name (unique)
-  -m, --mat             Is match regex pattern by name
-  -o, --more            Show more info
+  -R, --mat             Is match regex pattern by name
+  -m, --more            Show more info
   -l, --less            Show less info
 ```
 
