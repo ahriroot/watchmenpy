@@ -6,7 +6,7 @@ with open("README_EN.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name="watchmen",
+    name="watchmenpy",
     version=VERSION,
     author="ahriknow",
     author_email="ahriknow@ahriknow.com",
