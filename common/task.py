@@ -1,8 +1,8 @@
 import asyncio
-from asyncio.subprocess import Process
-from io import TextIOWrapper
 import os
 import subprocess
+from asyncio.subprocess import Process
+from io import TextIOWrapper
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -26,10 +26,10 @@ class AsyncTask(BaseModel):
 
 
 class PeriodicTask(BaseModel):
-    started_after: int
+    started_after: int = 0
     interval: int
-    last_run: int
-    sync: bool
+    last_run: int = 0
+    sync: bool = False
 
 
 class Task(BaseModel):
@@ -85,6 +85,11 @@ class Task(BaseModel):
         else:
             raise Exception("Unknown task type")
         return data
+    
+    @classmethod
+    def from_args(cls, args):
+        result = cls(**args)
+        return result
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Task":
@@ -148,5 +153,17 @@ class Task(BaseModel):
 
 class TaskFlag(BaseModel):
     id: int
-    name: str
-    mat: bool
+    name: Optional[str]
+    group: Optional[str]
+    mat: bool = False
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Task":
+        """
+        Convert dict to task.
+        Reconstruct data to facilitate communication with 'rust'
+        :param data: Dict[str, Any]
+        :return: Task
+        """
+        result = cls(**data)
+        return result

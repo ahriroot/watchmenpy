@@ -17,6 +17,12 @@ class Request(BaseModel):
         :return: Dict[str, Any]
         """
         data = self.model_dump()
+        if data['data'] is None:
+            return {"command": {"List": None}}
+        if "task_type" not in data['data']:
+            result = {"command": {}}
+            result["command"][data["command"]] = data["data"]
+            return result
         if isinstance(data["data"], dict):
             if "max_restart" in data["data"]["task_type"]:
                 data["data"]["task_type"] = {
@@ -67,6 +73,7 @@ class Request(BaseModel):
 
 class Status(BaseModel):
     id: int
+    group: Optional[str] = ""
     name: str
     command: str
     args: List[str]
