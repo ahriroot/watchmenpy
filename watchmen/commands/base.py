@@ -43,7 +43,6 @@ async def task_to_request(args: Namespace, config: Config) -> List[Task]:
                     raise Exception(
                         f'File [{path}] is not a TOML or INI or JSON file'
                     )
-        return tasks
     elif args.task_config is not None:
         path = Path(args.task_config)
         if path.is_file():
@@ -61,9 +60,9 @@ async def task_to_request(args: Namespace, config: Config) -> List[Task]:
                 raise Exception(
                     f'File [{path}] is not a TOML or INI or JSON file'
                 )
-        return tasks
     else:
-        return []
+        tasks.append(Task.from_args(args))
+    return tasks
 
 
 async def taskflag_to_request(args: Namespace, config: Config) -> List[TaskFlag]:

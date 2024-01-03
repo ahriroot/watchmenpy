@@ -1,6 +1,6 @@
 from setuptools import setup
 from setuptools import find_packages
-from watchmen import VERSION
+from common import VERSION
 
 with open("README_EN.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -13,7 +13,7 @@ setup(
     description="Watchmen is a daemon process manager that for you manage and keep your application online 24/7",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    license="MIT",
+    license="Apache License 2.0",
     keywords=[],
     classifiers=[
         "Development Status :: 5 - Production/Stable",

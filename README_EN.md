@@ -1,4 +1,4 @@
-# Watchmen (0.0.1)
+# Watchmen (0.0.2)
 
 `
 Watchmen is a daemon process manager that for you manage and keep your application online 24/7

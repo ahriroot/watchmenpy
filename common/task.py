@@ -5,6 +5,7 @@ from argparse import Namespace
 from asyncio.subprocess import Process
 from io import TextIOWrapper
 from pathlib import Path
+import time
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
@@ -35,15 +36,16 @@ class PeriodicTask(BaseModel):
 
 class Task(BaseModel):
     id: int
+    group: Optional[str] = ""
     name: str
     command: str
-    args: List[str]
+    args: List[str] = []
     dir: Optional[str] = None
-    env: Dict[str, str]
+    env: Dict[str, str] = {}
     stdin: Optional[bool] = None
     stdout: Optional[str] = None
     stderr: Optional[str] = None
-    created_at: int
+    created_at: int = int(time.time())
     task_type: Any
     pid: Optional[int] = None
     status: Optional[str] = "added"
@@ -61,9 +63,8 @@ class Task(BaseModel):
             stdin=None,
             stdout=None,
             stderr=None,
-            created_at=0,
-            task_type=AsyncTask(max_restart=5, has_restart=0,
-                                started_at=0, stopped_at=0),
+            created_at=int(time.time()),
+            task_type=None,
             pid=None,
             status=None,
             code=None,
@@ -88,11 +89,6 @@ class Task(BaseModel):
         return data
 
     @classmethod
-    def from_args(cls, args):
-        result = cls(**args)
-        return result
-
-    @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Task":
         """
         Convert dict to task.
@@ -112,6 +108,32 @@ class Task(BaseModel):
         else:
             raise Exception("Unknown task type")
         return result
+
+    @classmethod
+    def from_args(cls, args) -> "Task":
+        task = cls.default()
+
+        if args.task_name is None:
+            raise Exception("Task name is none")
+        task.name = args.task_name
+
+        if args.task_command is None:
+            raise Exception("Task command is none")
+        task.command = args.task_command
+
+        if args.task_args is not None:
+            task.args = args.task_args
+
+        if args.task_dir is not None:
+            task.dir = args.task_dir
+
+        if args.task_stdin is not None and args.task_stdin:
+            task.stdin = True
+
+        task.stdout = args.task_stdout
+        task.stderr = args.task_stderr
+
+        return task
 
     async def start(self) -> Process:
         stdin_file = None

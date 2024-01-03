@@ -9,7 +9,7 @@ from .task import AsyncTask, PeriodicTask, ScheduledTask, Task, TaskFlag
 from .utils import get_with_home, get_with_home_path
 
 
-VERSION = "0.1.0"
+VERSION = "0.0.2"
 
 
 __all__: List[str] = [

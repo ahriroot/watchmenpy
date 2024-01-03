@@ -159,7 +159,7 @@ async def update(task_id: int, pid: int, status: str, code: int, restart: Option
     """
     tp = tasks.get(task_id)
     if tp is None:
-        return Response.failed(f"Task [{task_id}] not exists")
+        return Response.failed(f"Task [{task_id}:{tp.task.name}] not exists")
 
     tp.task.pid = pid
     tp.task.status = status
@@ -167,15 +167,19 @@ async def update(task_id: int, pid: int, status: str, code: int, restart: Option
 
     if isinstance(tp.task.task_type, AsyncTask):
         has = tp.task.task_type.has_restart
-        if restart is not None:
+        if restart is None:
+            tp.task.status = "stopped"
+        else:
             if tp.task.task_type.max_restart is None:
                 has = 0
             else:
                 if has < tp.task.task_type.max_restart:
                     has += 1
+                else:
+                    tp.task.status = "stopped"
         tp.task.task_type.has_restart = has
 
-    return Response.success(f"Task [{task_id}] updated")
+    return Response.success(f"Task [{task_id}:{tp.task.name}] updated")
 
 
 async def run(task: Task) -> Response:
@@ -190,12 +194,17 @@ async def run(task: Task) -> Response:
 
 async def add(task: Task) -> Response:
     if tasks.check(task.id):
-        return Response.failed(f"Task [{task.id}] already exists")
+        return Response.failed(f"Task [{task.id}:{task.name}] already exists")
+
+    if isinstance(task.task_type, ScheduledTask):
+        task.status = "waiting"
+    else:
+        task.status = "added"
 
     tp = TaskProcess(task)
     tasks.add(task.id, tp)
     asyncio.create_task(cache())
-    return Response.success(f"Task [{task.id}] added")
+    return Response.success(f"Task [{task.id}:{task.name}] added")
 
 
 async def re_load(task: Task) -> Response:
@@ -219,6 +228,7 @@ async def start(tf: TaskFlag) -> None:
         raise ValueError(f"Task [{tf.id}] not exists")
 
     if isinstance(tp.task.task_type, AsyncTask):
+        max_restart = tp.task.task_type.max_restart
         if tp.task.status == "running":
             raise ValueError(f"Task [{tf.id}] is running")
 
@@ -227,16 +237,20 @@ async def start(tf: TaskFlag) -> None:
         async def watch():
             await child.wait()
             returncode = child.returncode
-            if tp.task.task_type.max_restart is None:
-                await update(tp.task.id, None, "stopped", returncode, restart)
+            
+            finish = False
+            if max_restart is None:
+                finish = True
             else:
-                if tp.task.task_type.max_restart == 0:
-                    await update(tp.task.id, None, "auto restart", returncode)
+                if returncode is None:
+                    finish = True
                 else:
-                    if tp.task.task_type.has_restart < tp.task.task_type.max_restart:
-                        await update(tp.task.id, None, "auto restart", returncode)
-                    else:
-                        await update(tp.task.id, None, "stopped", returncode)
+                    finish = returncode == 0 or returncode == -15 or max_restart == 0
+
+            if finish:
+                await update(tp.task.id, None, "stopped", returncode)
+            else:
+                await update(tp.task.id, None, "auto restart", returncode)
 
         tp.joinhandle = asyncio.create_task(watch())
         tp.child = child
@@ -246,7 +260,7 @@ async def start(tf: TaskFlag) -> None:
 
         asyncio.create_task(cache())
 
-        return Response.success(f"Task [{tf.id}] started")
+        return Response.success(f"Task [{tf.id}:{tp.task.name}] started")
     elif isinstance(tp.task.task_type, PeriodicTask):
         print("This task type is currently not supported")
     elif isinstance(tp.task.task_type, ScheduledTask):
@@ -260,20 +274,20 @@ async def stop(tf: TaskFlag, to_cache: bool = True) -> Response:
         raise ValueError(f"Task [{tf.id}] not exists")
 
     if tp.task.status != "running" and tp.task.status != "auto restart":
-        raise ValueError(f"Task [{tf.id}] is not running")
+        raise ValueError(f"Task [{tf.id}:{tp.task.name}] is not running")
 
     pid = tp.task.pid
     if pid is None:
-        raise ValueError(f"Task [{tf.id}] is not running")
+        raise ValueError(f"Task [{tf.id}:{tp.task.name}] is not running")
 
     try:
         os.kill(pid, signal.SIGTERM)
         tp.task.status = "stopped"
         if to_cache:
             asyncio.create_task(cache())
-        return Response.success(f"Task [{tf.id}] stopped")
+        return Response.success(f"Task [{tf.id}:{tp.task.name}] stopped")
     except ProcessLookupError:
-        raise ValueError(f"Task [{tf.id}] is not running")
+        raise ValueError(f"Task [{tf.id}:{tp.task.name}] is not running")
 
 
 async def restart(tf: TaskFlag) -> Response:
@@ -298,7 +312,7 @@ async def remove(tf: TaskFlag, to_cache: bool = True) -> Response:
     if to_cache:
         asyncio.create_task(cache())
 
-    return Response.success(f"Task [{tf.id}] removed")
+    return Response.success(f"Task [{tf.id}:{tp.task.name}] removed")
 
 
 async def lst(condition: Optional[TaskFlag]) -> Response:
@@ -313,6 +327,7 @@ async def lst(condition: Optional[TaskFlag]) -> Response:
         for k, v in tasks.get_all().items():
             status = Status(
                 id=k,
+                group=v.task.group,
                 name=v.task.name,
                 command=v.task.command,
                 args=v.task.args,
@@ -338,6 +353,7 @@ async def lst(condition: Optional[TaskFlag]) -> Response:
                 return Response.success([])
             status = Status(
                 id=tp.task.id,
+                group=tp.task.group,
                 name=tp.task.name,
                 command=tp.task.command,
                 args=tp.task.args,
@@ -360,6 +376,7 @@ async def lst(condition: Optional[TaskFlag]) -> Response:
                 if re.match(condition.name, v.task.name):
                     status = Status(
                         id=k,
+                        group=v.task.group,
                         name=v.task.name,
                         command=v.task.command,
                         args=v.task.args,
@@ -383,6 +400,7 @@ async def lst(condition: Optional[TaskFlag]) -> Response:
                 return Response.success([])
             status = Status(
                 id=tp.task.id,
+                group=tp.task.group,
                 name=tp.task.name,
                 command=tp.task.command,
                 args=tp.task.args,
