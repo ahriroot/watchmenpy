@@ -16,7 +16,7 @@ def main() -> int:
         print(f"\033[32mWatchmen python {VERSION}\033[0m")
         return ExitCode.SUCCESS
 
-    load = clargs.load
+    load: bool = clargs.load
 
     config: Config = Config.init(path=clargs.config)
 

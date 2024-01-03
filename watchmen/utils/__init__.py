@@ -1,4 +1,7 @@
 from .types import String
 
 
-__all__ = ["String"]
+output = print
+
+
+__all__ = ["String", "output"]

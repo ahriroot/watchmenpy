@@ -1,6 +1,7 @@
 import asyncio
 import os
 import subprocess
+from argparse import Namespace
 from asyncio.subprocess import Process
 from io import TextIOWrapper
 from pathlib import Path
@@ -85,7 +86,7 @@ class Task(BaseModel):
         else:
             raise Exception("Unknown task type")
         return data
-    
+
     @classmethod
     def from_args(cls, args):
         result = cls(**args)
@@ -153,8 +154,8 @@ class Task(BaseModel):
 
 class TaskFlag(BaseModel):
     id: int
-    name: Optional[str]
-    group: Optional[str]
+    name: Optional[str] = None
+    group: Optional[str] = None
     mat: bool = False
 
     @classmethod
@@ -167,3 +168,19 @@ class TaskFlag(BaseModel):
         """
         result = cls(**data)
         return result
+
+    @classmethod
+    def from_args(cls, args: Namespace) -> "Task":
+        """
+        Convert args to task.
+        Reconstruct data to facilitate communication with 'rust'
+        :param args: Dict[str, Any]
+        :return: Task
+        """
+        if args.task_id is not None:
+            return cls(id=args.task_id, mat=args.task_mat)
+        elif args.task_name is not None:
+            return cls(id=0, name=args.task_name, mat=args.task_mat)
+        elif args.task_group is not None:
+            return cls(id=0, group=args.task_group, mat=args.task_mat)
+        raise Exception("Task is none")

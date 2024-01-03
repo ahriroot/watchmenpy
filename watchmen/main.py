@@ -4,20 +4,21 @@ from argparse import Namespace
 from common import Config, TaskArgs, ExitCode, VERSION
 from watchmen.args import generate
 from watchmen.commands import handle_exec
+from watchmen.utils import output
 from watchmen.utils.types import String
 
 
 async def _main() -> int:
     clargs: Namespace = TaskArgs.parse()
     if clargs.version:
-        print(String(f"Watchmen python {VERSION}").green())
+        output(String(f"Watchmen python {VERSION}").green())
         return ExitCode.SUCCESS
 
     if clargs.generate is not None:
         try:
             return generate(path=clargs.generate)
         except ValueError as e:
-            print(String(e).red())
+            output(String(e).red())
             return ExitCode.ERROR
 
     config: Config = Config.init(path=clargs.config)
@@ -29,9 +30,9 @@ async def _main() -> int:
         await handle_exec(clargs, config)
 
         # try:
-        #     res = await handle_exec(clargs, config)
+        #     await handle_exec(clargs, config)
         # except Exception as e:
-        #     print(String(e).red())
+        #     output(String(e).red())
         #     return ExitCode.ERROR
 
 

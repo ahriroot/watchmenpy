@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 from common import ExitCode
+from watchmen.utils import output
 
 
 CONFIG = """[watchmen]
@@ -36,11 +37,14 @@ stderr = "$HOME/.watchmen/watchmen.stderr.log"
 pid = "$HOME/.watchmen/watchmen.pid"
 
 # The task config file name matching pattern
-# Default is `^.*\.(toml|ini|json)$`
-mat = "^.*\\\.(toml|ini|json)$"
+# Default is `^.*\\.(toml|ini|json)$`
+mat = "^.*\\.(toml|ini|json)$"
 
 # Tasks cache file, json format
 cache = "$HOME/.watchmen/cache.json"
+
+# Monitor interval for rerun tasks, u64: second
+interval = 5
 
 
 [sock]
@@ -88,7 +92,7 @@ def generate(path: str) -> int:
     if not parent.exists():
         parent.mkdir(parents=True)
 
-    print(f"Generate config file to {config_path}")
+    output(f"Generate config file to {config_path}")
 
     with open(config_path, "w") as f:
         f.write(CONFIG)

@@ -10,6 +10,7 @@ from common import Config
 from common.handle import Request, Response, Status
 from common.task import TaskFlag
 from watchmen.engine import send
+from watchmen.utils import output
 from watchmen.utils.file import recursive_search_files
 from watchmen.utils.print_result import print_result as pr
 from watchmen.utils.types import String
@@ -176,13 +177,13 @@ def print_result(res: List[Response]) -> None:
         max_command + max_pid + max_code + max_type + 3 * (7 - 1) + 4
 
     for i in range(len(column_id)):
-        print("{:-<{width}}".format("", width=max_sum))
+        output("{:-<{width}}".format("", width=max_sum))
         row = "| {: <{max_id}} | {: <{max_name}} | {: <{max_status}} | {: <{max_command}} | {: <{max_pid}} | {: <{max_code}} | {: <{max_type}} |"
-        print(
+        output(
             row.format(column_id[i], column_name[i], column_status[i], column_command[i], column_pid[i], column_code[i], column_type[i],
                        max_id=max_id, max_name=max_name, max_status=max_status, max_command=max_command, max_pid=max_pid, max_code=max_code, max_type=max_type)
         )
-    print("{:-<{width}}".format("", width=max_sum))
+    output("{:-<{width}}".format("", width=max_sum))
 
     total = String.purple(total)
     total_running = String.green(total_running)
@@ -191,7 +192,7 @@ def print_result(res: List[Response]) -> None:
     total_waiting = String.blue(total_waiting)
     total_interval = String.cyan(total_interval)
     total_paused = String.yellow(total_paused)
-    print(f'{total} Total: {total_running} running, {total_stopped} stopped, {total_added} added, {total_waiting} waiting, {total_interval} interval, {total_paused} paused')
+    output(f'{total} Total: {total_running} running, {total_stopped} stopped, {total_added} added, {total_waiting} waiting, {total_interval} interval, {total_paused} paused')
 
 
 def print_result_more(res: List[Response]) -> None:
@@ -276,13 +277,13 @@ def print_result_more(res: List[Response]) -> None:
         max_code + max_type + 3 * (9 - 1) + 4
 
     for i in range(len(column_id)):
-        print("{:-<{width}}".format("", width=max_sum))
+        output("{:-<{width}}".format("", width=max_sum))
         row = "| {: <{max_id}} | {: <{max_group}} | {: <{max_name}} | {: <{max_status}} | {: <{max_command}} | {: <{max_args}} | {: <{max_pid}} | {: <{max_code}} | {: <{max_type}} |"
-        print(
+        output(
             row.format(column_id[i], column_group[i], column_name[i], column_status[i], column_command[i], column_args[i], column_pid[i], column_code[i], column_type[i],
                        max_id=max_id, max_group=max_group, max_name=max_name, max_status=max_status, max_command=max_command, max_args=max_args, max_pid=max_pid, max_code=max_code, max_type=max_type)
         )
-    print("{:-<{width}}".format("", width=max_sum))
+    output("{:-<{width}}".format("", width=max_sum))
 
     total = String.purple(total)
     total_running = String.green(total_running)
@@ -291,7 +292,7 @@ def print_result_more(res: List[Response]) -> None:
     total_waiting = String.blue(total_waiting)
     total_interval = String.cyan(total_interval)
     total_paused = String.yellow(total_paused)
-    print(f'{total} Total: {total_running} running, {total_stopped} stopped, {total_added} added, {total_waiting} waiting, {total_interval} interval, {total_paused} paused')
+    output(f'{total} Total: {total_running} running, {total_stopped} stopped, {total_added} added, {total_waiting} waiting, {total_interval} interval, {total_paused} paused')
 
 
 def print_result_less(res: List[Response]) -> None:
@@ -355,13 +356,13 @@ def print_result_less(res: List[Response]) -> None:
     max_sum = max_id + max_name + max_status_onlytext + 3 * (4 - 1) + 1
 
     for i in range(len(column_id)):
-        print("{:-<{width}}".format("", width=max_sum))
+        output("{:-<{width}}".format("", width=max_sum))
         row = "| {: <{max_id}} | {: <{max_name}} | {: <{max_status}} |"
-        print(
+        output(
             row.format(column_id[i], column_name[i], column_status[i],
                        max_id=max_id, max_name=max_name, max_status=max_status)
         )
-    print("{:-<{width}}".format("", width=max_sum))
+    output("{:-<{width}}".format("", width=max_sum))
 
     total = String.purple(total)
     total_running = String.green(total_running)
@@ -370,4 +371,4 @@ def print_result_less(res: List[Response]) -> None:
     total_waiting = String.blue(total_waiting)
     total_interval = String.cyan(total_interval)
     total_paused = String.yellow(total_paused)
-    print(f'{total} Total: {total_running} running, {total_stopped} stopped, {total_added} added, {total_waiting} waiting, {total_interval} interval, {total_paused} paused')
+    output(f'{total} Total: {total_running} running, {total_stopped} stopped, {total_added} added, {total_waiting} waiting, {total_interval} interval, {total_paused} paused')

@@ -21,6 +21,9 @@ class TaskArgs:
         self._create_flag_command("stop", "Stop tasks")
         self._create_flag_command("remove", "Remove tasks")
 
+        self._create_flag_command("pause", "Pause tasks")
+        self._create_flag_command("resume", "Resume tasks")
+
         self._create_list_command("list", "Get tasks list")
 
     def _create_parser(self) -> ArgumentParser:

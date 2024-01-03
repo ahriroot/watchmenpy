@@ -98,7 +98,6 @@ async def taskflag_to_request(args: Namespace, config: Config) -> List[TaskFlag]
                     raise Exception(
                         f'File [{path}] is not a TOML or INI or JSON file'
                     )
-        return tfs
     elif args.task_config is not None:
         path = Path(args.task_config)
         if path.is_file():
@@ -116,6 +115,6 @@ async def taskflag_to_request(args: Namespace, config: Config) -> List[TaskFlag]
                 raise Exception(
                     f'File [{path}] is not a TOML or INI or JSON file'
                 )
-        return tfs
     else:
-        return []
+        tfs.append(TaskFlag.from_args(args))
+    return tfs
