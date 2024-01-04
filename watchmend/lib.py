@@ -1,12 +1,12 @@
 import asyncio
-from asyncio.subprocess import Process
 import atexit
 import json
 import os
-from pathlib import Path
 import re
 import signal
-from typing import Dict, Optional
+from asyncio.subprocess import Process
+from pathlib import Path
+from typing import Dict, List, Optional
 
 from common.handle import Response, Status
 from common.task import AsyncTask, PeriodicTask, ScheduledTask, Task, TaskFlag
@@ -147,7 +147,7 @@ async def cache() -> None:
             json.dump(tasks_cache, f)
 
 
-async def update(task_id: int, pid: int, status: str, code: int, restart: Optional[bool] = False) -> Response:
+async def update(task_id: int, pid: int, status: Optional[str], code: int, restart: Optional[bool] = False, from_status: Optional[List[str]] = None) -> Response:
     """
     Update task status.
     :param task_id: Task id
@@ -155,14 +155,20 @@ async def update(task_id: int, pid: int, status: str, code: int, restart: Option
     :param status: Task status
     :param code: Exit code
     :param restart: Restart
+    :param from_status: From status
     :return: Response
     """
     tp = tasks.get(task_id)
     if tp is None:
-        return Response.failed(f"Task [{task_id}:{tp.task.name}] not exists")
+        return Response.failed(f"Task [{task_id}] not exists")
 
     tp.task.pid = pid
-    tp.task.status = status
+    if status is not None:
+        if from_status is None:
+            tp.task.status = status
+        else:
+            if tp.task.status in from_status:
+                tp.task.status = status
     tp.task.code = code
 
     if isinstance(tp.task.task_type, AsyncTask):
@@ -188,8 +194,10 @@ async def run(task: Task) -> Response:
     :param task: Task
     :return: Response
     """
-    await add(task)
-    return await start(TaskFlag(id=task.id, name="", mat=False))
+    res = await add(task)
+    if not isinstance(task.task_type, ScheduledTask):
+        return await start(TaskFlag(id=task.id, name="", mat=False))
+    return res
 
 
 async def add(task: Task) -> Response:
@@ -237,7 +245,7 @@ async def start(tf: TaskFlag) -> None:
         async def watch():
             await child.wait()
             returncode = child.returncode
-            
+
             finish = False
             if max_restart is None:
                 finish = True
@@ -262,9 +270,41 @@ async def start(tf: TaskFlag) -> None:
 
         return Response.success(f"Task [{tf.id}:{tp.task.name}] started")
     elif isinstance(tp.task.task_type, PeriodicTask):
-        print("This task type is currently not supported")
+        child = await tp.task.start()
+
+        async def watch():
+            await child.wait()
+            returncode = child.returncode 
+            await update(tp.task.id, None, "interval", returncode, False, ["executing"])
+            asyncio.create_task(cache())
+
+        tp.joinhandle = asyncio.create_task(watch())
+        tp.child = child
+        tp.task.pid = child.pid
+        tp.task.status = "executing"
+        tp.task.code = None
+
+        asyncio.create_task(cache())
+
+        return Response.success(f"Task [{tf.id}:{tp.task.name}] executing")
     elif isinstance(tp.task.task_type, ScheduledTask):
-        print("This task type is currently not supported")
+        child = await tp.task.start()
+
+        async def watch():
+            await child.wait()
+            returncode = child.returncode
+            await update(tp.task.id, None, "waiting", returncode, False, ["processing"])
+            asyncio.create_task(cache())
+
+        tp.joinhandle = asyncio.create_task(watch())
+        tp.child = child
+        tp.task.pid = child.pid
+        tp.task.status = "processing"
+        tp.task.code = None
+
+        asyncio.create_task(cache())
+
+        return Response.success(f"Task [{tf.id}:{tp.task.name}] processing")
     raise ValueError("Task type not supported")
 
 
@@ -313,6 +353,38 @@ async def remove(tf: TaskFlag, to_cache: bool = True) -> Response:
         asyncio.create_task(cache())
 
     return Response.success(f"Task [{tf.id}:{tp.task.name}] removed")
+
+
+async def pause(tf: TaskFlag) -> Response:
+    if tf.id > 0:
+        tp = tasks.get(tf.id)
+    else:
+        tp = tasks.get_by_name(tf.name)
+
+    if tp.task.status != "interval" and tp.task.status != "executing":
+        raise ValueError(f"Task [{tp.task.id}:{tp.task.name}] is not interval")
+
+    tp.task.status = "paused"
+
+    await cache()
+
+    return Response.success(f"Task [{tf.id}:{tp.task.name}] paused")
+
+
+async def resume(tf: TaskFlag) -> Response:
+    if tf.id > 0:
+        tp = tasks.get(tf.id)
+    else:
+        tp = tasks.get_by_name(tf.name)
+
+    if tp.task.status != "paused":
+        raise ValueError(f"Task [{tp.task.id}:{tp.task.name}] is not paused")
+
+    tp.task.status = "interval"
+
+    await cache()
+
+    return Response.success(f"Task [{tf.id}:{tp.task.name}] resumed")
 
 
 async def lst(condition: Optional[TaskFlag]) -> Response:

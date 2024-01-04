@@ -1,5 +1,5 @@
 from common import Request, Response
-from watchmend.lib import run, add, re_load, start, stop, restart, remove, lst
+from watchmend.lib import run, add, re_load, start, stop, restart, remove, pause, resume, lst
 
 
 async def handle_exec(request: Request) -> Response:
@@ -18,6 +18,10 @@ async def handle_exec(request: Request) -> Response:
             return await restart(request.data)
         elif request.command == "Remove":
             return await remove(request.data)
+        elif request.command == "Pause":
+            return await pause(request.data)
+        elif request.command == "Resume":
+            return await resume(request.data)
         elif request.command == "List":
             return await lst(request.data)
     except ValueError as e:

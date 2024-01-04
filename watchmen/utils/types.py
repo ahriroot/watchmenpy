@@ -8,6 +8,9 @@ class String(str):
     def green(self) -> str:
         return f"\033[32m{self}\033[0m"
 
+    def gray(self) -> str:
+        return f"\033[90m{self}\033[0m"
+
     def yellow(self) -> str:
         return f"\033[33m{self}\033[0m"
 

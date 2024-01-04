@@ -18,6 +18,7 @@ class Watchmen(BaseModel):
     pid: Optional[str] = None
     mat: Optional[str] = None
     cache: Optional[str] = None
+    interval: Optional[int] = None
 
 
 class Sock(BaseModel):

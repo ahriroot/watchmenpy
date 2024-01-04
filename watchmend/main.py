@@ -6,7 +6,7 @@ from common import Config, DaemonArgs, ExitCode, VERSION
 
 
 async def _main(config: Config, load: bool) -> int:
-    asyncio.create_task(run_monitor())
+    asyncio.create_task(run_monitor(config.watchmen.interval or 5))
     await start(config=config, load_cache=load)
 
 

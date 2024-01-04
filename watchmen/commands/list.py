@@ -154,12 +154,14 @@ def print_result(res: List[Response]) -> None:
             column_status.append(String.yellow("paused"))
         elif s.status == "executing":
             column_status.append(String.green("executing"))
+        elif s.status == "processing":
+            column_status.append(String.green("processing"))
         else:
-            column_status.append(s.status)
+            column_status.append(String(s.status).gray())
         cmd = s.command.split('/')
         column_command.append(cmd[-1] if len(cmd) > 0 else s.command)
         column_pid.append(s.pid or "")
-        column_code.append(s.pid if s.pid is not None else "")
+        column_code.append(s.exit_code if s.exit_code is not None else "")
         column_type.append(list(s.task_type.keys())[0])
 
     pattern = re.compile(r'\033\[[0-9;]*m')
@@ -250,13 +252,15 @@ def print_result_more(res: List[Response]) -> None:
             column_status.append(String.yellow("paused"))
         elif s.status == "executing":
             column_status.append(String.green("executing"))
+        elif s.status == "processing":
+            column_status.append(String.green("processing"))
         else:
-            column_status.append(s.status)
+            column_status.append(String(s.status).gray())
         cmd = s.command.split('/')
         column_command.append(cmd[-1] if len(cmd) > 0 else s.command)
         column_args.append(" ".join(s.args))
         column_pid.append(s.pid or "")
-        column_code.append(s.pid if s.pid is not None else "")
+        column_code.append(s.exit_code if s.exit_code is not None else "")
         column_type.append(list(s.task_type.keys())[0])
 
     pattern = re.compile(r'\033\[[0-9;]*m')
@@ -343,8 +347,10 @@ def print_result_less(res: List[Response]) -> None:
             column_status.append(String.yellow("paused"))
         elif s.status == "executing":
             column_status.append(String.green("executing"))
+        elif s.status == "processing":
+            column_status.append(String.green("processing"))
         else:
-            column_status.append(s.status)
+            column_status.append(String(s.status).gray())
 
     pattern = re.compile(r'\033\[[0-9;]*m')
     max_id = max([len(pattern.sub('', str(i))) for i in column_id])
