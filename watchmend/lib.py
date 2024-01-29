@@ -110,10 +110,6 @@ async def load(path: str) -> None:
 
                 async def watch():
                     await child.wait()
-                    print(task_id)
-                    print(child.returncode)
-                    print(max_restart)
-                    print(has_restart)
                     returncode = child.returncode
                     if max_restart is None:
                         await update(task_id, None, "stopped", returncode, False)

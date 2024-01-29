@@ -12,14 +12,24 @@ async def start(config: Config, load_cache: bool) -> None:
         except Exception as e:
             logger.warning(f"Failed to load cache: {e}")
 
-    task_sock = None
+    tasks = []
+        
     if "sock" in config.watchmen.engines:
         from .sock import start as start_sock
         logger.info("Starting sock...")
-        task_sock = await start_sock(config=config)
+        tasks.append(await start_sock(config=config))
 
-    tasks = []
-    if task_sock is not None:
-        tasks.append(task_sock)
+    if "socket" in config.watchmen.engines:
+        from .socket import start as start_socket
+        logger.info("Starting socket...")
+        tasks.append(await start_socket(config=config))
+
+    if "http" in config.watchmen.engines:
+        from .http import start as start_http
+        logger.info("Starting http...")
+        tasks.append(await start_http(config=config))
+
+    if len(tasks) == 0:
+        raise Exception("No engine started")
 
     await asyncio.gather(*tasks)

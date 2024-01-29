@@ -1,6 +1,5 @@
 import asyncio
 import json
-from pathlib import Path
 
 from common.config import Config
 from common.handle import Request
@@ -8,16 +7,11 @@ from watchmend.command import handle_exec
 
 
 async def start(config: Config) -> asyncio.Task[None]:
-    return asyncio.create_task(run_sock(path=config.sock.path))
+    return asyncio.create_task(run_socket(host=config.socket.host, port=config.socket.port))
 
 
-async def run_sock(path: str) -> None:
-    sock_path = Path(path)
-
-    if sock_path.exists() and sock_path.is_socket():
-        sock_path.unlink()
-
-    server: asyncio.Server = await asyncio.start_unix_server(handle_connection, path=path)
+async def run_socket(host: str, port: int) -> None:
+    server: asyncio.Server = await asyncio.start_server(handle_connection, host=host, port=port)
     async with server:
         await server.serve_forever()
 

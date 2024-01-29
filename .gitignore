@@ -757,3 +757,4 @@ FodyWeavers.xsd
 
 .vscode
 .python-version
+!/watchmend/http-panel/dist
